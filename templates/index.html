@@ -61,7 +61,7 @@
           </label>
 
           <label>Upload mask (optional):
-            <input type="file" id="refmaskInput" name="refmask" accept="image/*">
+            <input type="file" name="refmask" accept="image/*">
           </label>
 
           <label>Low:
@@ -124,15 +124,9 @@ Apply morphological closing (connect cracks)
     <h3>Pred mask</h3>
     <img src="data:image/png;base64,{{ pred_b64 }}"/>
   </div>
-  
-<div class="imgcard">
+  <div class="imgcard">
     <h3>Overlay</h3>
-      <img src="data:image/png;base64,{{ overlay_b64 }}"/>
-    </div>
-</div>
-  </div>
-  {% endif %}
-    </div>
+    <img src="data:image/png;base64,{{ overlay_b64 }}"/>
   </div>
   {% if thin_b64 %}
   <div class="imgcard">
@@ -144,26 +138,8 @@ Apply morphological closing (connect cracks)
 
 <p style="text-align:center; margin-top:12px;"><b>Components:</b> {{ n_components }}</p>
 
-<div class="card" style="margin-top:16px;">
-
-{% if tp is defined and tp is not none %}
-<h3>Confusion Matrix & Metrics</h3>
-<table style="border-collapse:collapse; width:420px; margin:12px auto;">
-  <tbody>
-    <tr><td><b>True Positives</b></td><td>{{ tp }}</td></tr>
-    <tr><td><b>False Positives</b></td><td>{{ fp }}</td></tr>
-    <tr><td><b>False Negatives</b></td><td>{{ fn }}</td></tr>
-    <tr><td><b>Precision</b></td><td>{{ "%.3f"|format(precision) if (precision is defined and precision is not none) else "—" }}</td></tr>
-    <tr><td><b>Recall</b></td><td>{{ "%.3f"|format(recall) if (recall is defined and recall is not none) else "—" }}</td></tr>
-    <tr><td><b>F1-score</b></td><td>{{ "%.3f"|format(f1) if (f1 is defined and f1 is not none) else "—" }}</td></tr>
-  </tbody>
-</table>
-</div>
-{% endif %}
-
 {% if crack_rows %}
   <h3>Crack table</h3>
-<div style="overflow-x:auto;">
   <table id="crackTable" style="border-collapse:collapse; width:100%;">
     <thead>
       <tr>
@@ -185,9 +161,17 @@ Apply morphological closing (connect cracks)
     </tbody>
   </table>
 {% endif %}
+
+
+        {% if tp is not none %}
+          <p><b>TP:</b> {{ tp }} | <b>FP:</b> {{ fp }} | <b>FN:</b> {{ fn }}</p>
+          <p class="muted">Overlay legend: TP=Green, FP=Red, FN=Blue</p>
+        {% else %}
+          <p class="muted">Overlay legend: Pred=Red</p>
+        {% endif %}
       </div>
+    {% endif %}
   </div>
-</div>
 
 <script>
   const marbleInput = document.getElementById("marbleInput");
@@ -200,7 +184,6 @@ Apply morphological closing (connect cracks)
   const form = document.getElementById("form");
   const refmaskField = document.getElementById("refmask_b64");
 
-    const refmaskInput = document.getElementById("refmaskInput");
   let drawing = false;
   let lastX = 0, lastY = 0;
 
@@ -227,7 +210,6 @@ Apply morphological closing (connect cracks)
 
   function start(e) {
     drawing = true;
-      if (refmaskInput) refmaskInput.value = "";
     const p = getPos(e);
     lastX = p.x; lastY = p.y;
   }
@@ -294,16 +276,8 @@ Apply morphological closing (connect cracks)
   });
 
   form.addEventListener("submit", () => {
-  const hasUpload = !!(refmaskInput && refmaskInput.files && refmaskInput.files.length > 0);
-  if (hasUpload) {
-    // upload wins, do not send canvas
-    refmaskField.value = "";
-  } else {
-    // default: always send canvas (empty canvas == empty mask)
     refmaskField.value = canvas.toDataURL("image/png");
-  }
-});
-});
+  });
 </script>
 </body>
 </html>
