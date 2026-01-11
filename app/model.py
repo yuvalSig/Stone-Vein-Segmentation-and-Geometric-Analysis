@@ -12,4 +12,4 @@ def build_deeplabv3(num_classes: int = 1) -> nn.Module:
 
 def forward_logits(model: nn.Module, x: torch.Tensor) -> torch.Tensor:
     out = model(x)
-    return (out["out"] if isinstance(out, dict) and "out" in out else out)
+    return out["out"]
