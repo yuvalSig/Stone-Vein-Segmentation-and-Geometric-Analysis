@@ -127,25 +127,14 @@ Apply morphological closing (connect cracks)
   
 <div class="imgcard">
     <h3>Overlay</h3>
-  <div class="imgOverlayWrap">
-    <img src="data:image/png;base64,{{ overlay_b64 }}"/>
-    {% if tp is not none %}
-    <div class="metricsOverlay">
-      <div class="metric"><b>True Positives:</b> {{ tp }}</div>
+      <img src="data:image/png;base64,{{ overlay_b64 }}"/>
+    </div>
       <div class="metric"><b>False Positives:</b> {{ fp }}</div>
       <div class="metric"><b>False Negatives:</b> {{ fn }}</div>
-      {% if precision is not none %}
-      <div class="metric"><b>Precision:</b> {{ "%.3f"|format(precision) }}</div>
-      <div class="metric"><b>Recall:</b> {{ "%.3f"|format(recall) }}</div>
-      <div class="metric"><b>F1-score:</b> {{ "%.3f"|format(f1) }}</div>
-      {% endif %}
     </div>
     {% endif %}
   </div>
 </div>
-    {% if precision is not none %}
-      <div class="row muter"><b>P</b>: {{ "%.3f"|format(precision) }} &nbsp; <b>R</b>: {{ "%.3f"|format(recall) }} &nbsp; <b>F1</b>: {{ "%.3f"|format(f1) }}</div>
-    {% endif %}
   </div>
   {% endif %}
     </div>
@@ -160,16 +149,16 @@ Apply morphological closing (connect cracks)
 
 <p style="text-align:center; margin-top:12px;"><b>Components:</b> {{ n_components }}</p>
 
-{% if tp is not none %}
+{% if tp is defined and tp is not none %}
 <h3>Confusion Matrix & Metrics</h3>
 <table style="border-collapse:collapse; width:420px; margin:12px auto;">
   <tbody>
     <tr><td><b>True Positives</b></td><td>{{ tp }}</td></tr>
     <tr><td><b>False Positives</b></td><td>{{ fp }}</td></tr>
     <tr><td><b>False Negatives</b></td><td>{{ fn }}</td></tr>
-    <tr><td><b>Precision</b></td><td>{{ "%.3f"|format(precision) if precision is not none else "—" }}</td></tr>
-    <tr><td><b>Recall</b></td><td>{{ "%.3f"|format(recall) if recall is not none else "—" }}</td></tr>
-    <tr><td><b>F1-score</b></td><td>{{ "%.3f"|format(f1) if f1 is not none else "—" }}</td></tr>
+    <tr><td><b>Precision</b></td><td>{{ "%.3f"|format(precision) if (precision is defined and precision is not none) else "—" }}</td></tr>
+    <tr><td><b>Recall</b></td><td>{{ "%.3f"|format(recall) if (recall is defined and recall is not none) else "—" }}</td></tr>
+    <tr><td><b>F1-score</b></td><td>{{ "%.3f"|format(f1) if (f1 is defined and f1 is not none) else "—" }}</td></tr>
   </tbody>
 </table>
 {% endif %}
