@@ -124,14 +124,32 @@ Apply morphological closing (connect cracks)
     <h3>Pred mask</h3>
     <img src="data:image/png;base64,{{ pred_b64 }}"/>
   </div>
-  <div class="imgcard">
+  
+<div class="imgcard">
     <h3>Overlay</h3>
-<div class="imgOverlayWrap">
-  <img src="data:image/png;base64,{{ overlay_b64 }}"/>
+  <div class="imgOverlayWrap">
+    <img src="data:image/png;base64,{{ overlay_b64 }}"/>
+    {% if tp is not none %}
+    <div class="metricsOverlay">
+      <div class="metric"><b>True Positives:</b> {{ tp }}</div>
+      <div class="metric"><b>False Positives:</b> {{ fp }}</div>
+      <div class="metric"><b>False Negatives:</b> {{ fn }}</div>
+      {% if precision is not none %}
+      <div class="metric"><b>Precision:</b> {{ "%.3f"|format(precision) }}</div>
+      <div class="metric"><b>Recall:</b> {{ "%.3f"|format(recall) }}</div>
+      <div class="metric"><b>F1-score:</b> {{ "%.3f"|format(f1) }}</div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+    {% if precision is not none %}
+      <div class="row muter"><b>P</b>: {{ "%.3f"|format(precision) }} &nbsp; <b>R</b>: {{ "%.3f"|format(recall) }} &nbsp; <b>F1</b>: {{ "%.3f"|format(f1) }}</div>
+    {% endif %}
   </div>
   {% endif %}
-</div>
-</div>
+    </div>
+  </div>
   {% if thin_b64 %}
   <div class="imgcard">
     <h3>Thin mask</h3>
@@ -166,9 +184,9 @@ Apply morphological closing (connect cracks)
   </table>
 {% endif %}
       </div>
-    {% endif %}
   </div>
 
+{% endif %}
 <script>
   const marbleInput = document.getElementById("marbleInput");
   const preview = document.getElementById("preview");
