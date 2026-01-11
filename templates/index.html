@@ -40,14 +40,7 @@
     .row { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
     .col { flex: 1 1 480px; }
     .outimg { width:100%; border-radius:10px; border:1px solid #eee; }
-  
-  .imggrid { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; align-items:flex-start; }
-  .imgcard { flex: 1 1 240px; max-width: 260px; }
-  .imgcard h3 { margin: 0 0 8px; text-align:center; }
-  .imgcard img { width:100%; border-radius:10px; border:1px solid #eee; background:#fff; }
-  .doc { text-align:center; margin: 10px 0 14px; }
-  .doc code { background:#f2f2f2; padding:2px 6px; border-radius:6px; }
-</style>
+  </style>
 </head>
 <body>
   <div class="container">
@@ -61,7 +54,7 @@
           </label>
 
           <label>Upload mask (optional):
-            <input type="file" id="refmaskInput" name="refmask" accept="image/*">
+            <input type="file" name="refmask" accept="image/*">
           </label>
 
           <label>Low:
@@ -104,58 +97,39 @@ Apply morphological closing (connect cracks)
     {% if pred_b64 %}
       <div style="height:16px"></div>
       <div class="card">
-        <div class="doc">
-  <div><b>Run settings</b></div>
-  <div class="muted">
-    Hysteresis thresholds: <code>low={{ hyst_low }}</code>, <code>high={{ hyst_high }}</code>
-    &nbsp;|&nbsp; Hysteresis keeps weak pixels only if connected to strong pixels.
-  </div>
-  <div class="muted">
-    Morphology refinement: <code>{{ "ON" if use_refine else "OFF" }}</code>
-  </div>
-</div>
+        <div class="row">
+          <div class="col">
+            <h3>Pred mask</h3>
+{% if thin_b64 %}
+  <h3>Thin mask (skeleton)</h3>
+  <img class="outimg" src="data:image/png;base64,{{ thin_b64 }}"/>
+{% endif %}
 
-<div class="imggrid">
-  <div class="imgcard">
-    <h3>Original</h3>
-    <img src="data:image/png;base64,{{ marble_b64 }}"/>
-  </div>
-  <div class="imgcard">
-    <h3>Pred mask</h3>
-    <img src="data:image/png;base64,{{ pred_b64 }}"/>
-  </div>
-  <div class="imgcard">
-    <h3>Overlay</h3>
-    <img src="data:image/png;base64,{{ overlay_b64 }}"/>
-  </div>
-  {% if thin_b64 %}
-  <div class="imgcard">
-    <h3>Thin mask</h3>
-    <img src="data:image/png;base64,{{ thin_b64 }}"/>
-  </div>
-  {% endif %}
-</div>
+            <img class="outimg" src="data:image/png;base64,{{ pred_b64 }}"/>
+          </div>
+          <div class="col">
+            <h3>Overlay</h3>
+            <img class="outimg" src="data:image/png;base64,{{ overlay_b64 }}"/>
+          </div>
+        </div>
 
-<p style="text-align:center; margin-top:12px;"><b>Components:</b> {{ n_components }}</p>
+        <p><b>Components:</b> {{ n_components }}</p>
 
 {% if crack_rows %}
   <h3>Crack table</h3>
   <table id="crackTable" style="border-collapse:collapse; width:100%;">
     <thead>
       <tr>
-        <th style="border:1px solid #ddd; padding:6px;">Length (px)</th>
         <th style="border:1px solid #ddd; padding:6px;">Angle (deg)</th>
-        <th style="border:1px solid #ddd; padding:6px;">Mean width (px)</th>
-        <th style="border:1px solid #ddd; padding:6px;">Max width (px)</th>
       </tr>
     </thead>
     <tbody>
       {% for r in crack_rows %}
       <tr>
-        <td style="border:1px solid #ddd; padding:6px;">{{ r["length_px"] }}</td>
-        <td style="border:1px solid #ddd; padding:6px;">{{ "%.1f"|format(r["orientation_deg"]) }}</td>
-        <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r["mean_width_px"]) }}</td>
-        <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r["max_width_px"]) }}</td>
+        <td style="border:1px solid #ddd; padding:6px;">{{ r.length_px }}</td>
+        <td style="border:1px solid #ddd; padding:6px;">{{ "%.1f"|format(r.orientation_deg) }}</td>
+        <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r.mean_width_px) }}</td>
+        <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r.max_width_px) }}</td>
       </tr>
       {% endfor %}
     </tbody>
