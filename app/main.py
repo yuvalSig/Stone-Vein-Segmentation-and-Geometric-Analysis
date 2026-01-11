@@ -2,7 +2,6 @@ import base64
 from io import BytesIO
 from pathlib import Path
 
-
 import cv2
 import numpy as np
 import torch
@@ -14,7 +13,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
-from app.unet_model import UNet
+
 from app.model import build_deeplabv3, forward_logits
 from app.infer import pil_to_rgb, to_tensor, hysteresis, refine_mask
 from app.crack_metrics import crack_table_from_mask, skeletonize_opencv
@@ -62,21 +61,6 @@ def decode_data_url_png(data_url: str) -> bytes | None:
 ckpt = torch.load(WEIGHTS_PATH, map_location=device)
 state = ckpt["model"]
 model = build_deeplabv3(num_classes=1).to(device)
-# SWITCH_TO_UNET_IF_NEEDED
-def _is_unet_state(sd: dict) -> bool:
-    try:
-        ks = list(sd.keys())
-        return any(k.startswith("downs.") for k in ks) and any(k.startswith("ups.") for k in ks)
-    except Exception:
-        return False
-
-try:
-    if isinstance(state, dict) and _is_unet_state(state):
-        print("Detected UNet checkpoint -> building UNet model")
-        model = UNet(in_channels=3, out_channels=1).to(device)
-except Exception as e:
-    print("UNet auto-detect failed:", e)
-
 model.load_state_dict(state, strict=True)
 model.eval()
 
@@ -158,7 +142,6 @@ async def analyze(
             ref_bytes = b
 
     tp = fp = fn = None
-      precision = recall = f1 = None
     if ref_bytes is not None:
         try:
             ref_pil = Image.open(BytesIO(ref_bytes)).convert("L")
@@ -173,12 +156,6 @@ async def analyze(
             fp = int(fp_mask.sum())
             fn = int(fn_mask.sum())
 
-
-
-              # Metrics
-              precision = (tp/(tp+fp)) if (tp is not None and fp is not None and (tp+fp)>0) else None
-              recall    = (tp/(tp+fn)) if (tp is not None and fn is not None and (tp+fn)>0) else None
-              f1        = ((2*precision*recall)/(precision+recall)) if (precision is not None and recall is not None and (precision+recall)>0) else None
             overlay[tp_mask] = [0, 255, 0]
             overlay[fp_mask] = [255, 0, 0]
             overlay[fn_mask] = [0, 0, 255]
@@ -205,9 +182,6 @@ async def analyze(
             "tp": tp,
             "fp": fp,
             "fn": fn,
-              "precision": precision,
-              "recall": recall,
-              "f1": f1,
             "hyst_low": hyst_low,
             "hyst_high": hyst_high,
             "use_refine": use_refine,
