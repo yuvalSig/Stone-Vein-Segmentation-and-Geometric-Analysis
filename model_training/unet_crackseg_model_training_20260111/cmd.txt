@@ -1,0 +1,1 @@
+/home/yuvalsi2/.conda/envs/crackseg/bin/python -m src_unet.train_unet --epochs 6 --batch_size 8 --patch_size 512 --lr 3e-4 --pos_weight 8 --out_dir outputs_unet
