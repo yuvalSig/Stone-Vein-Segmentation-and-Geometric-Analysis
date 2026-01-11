@@ -15,9 +15,30 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
 from app.unet_model import UNet
-from app.model import build_deeplabv3, forward_logits
 from app.infer import pil_to_rgb, to_tensor, hysteresis, refine_mask
 from app.crack_metrics import crack_table_from_mask, skeletonize_opencv
+
+def pixel_metrics(pred_mask, ref_mask):
+    import numpy as np
+
+    pred = (pred_mask > 0).astype(np.uint8)
+    ref  = (ref_mask  > 0).astype(np.uint8)
+
+    tp = int((pred & ref).sum())
+    fp = int((pred & (1 - ref)).sum())
+    fn = int(((1 - pred) & ref).sum())
+    tn = int(((1 - pred) & (1 - ref)).sum())
+
+    def safe_div(a, b): return float(a) / float(b) if b else None
+
+    precision = safe_div(tp, tp + fp)
+    recall    = safe_div(tp, tp + fn)
+    f1        = safe_div(2*tp, 2*tp + fp + fn)
+    iou       = safe_div(tp, tp + fp + fn)
+    dice      = f1
+
+    return tp, fp, fn, tn, precision, recall, f1, iou, dice
+
 
 APP_DIR = "/home/ssm-user/crack_demo"
 WEIGHTS_PATH = f"{APP_DIR}/app/best.pt"
@@ -59,9 +80,10 @@ def decode_data_url_png(data_url: str) -> bytes | None:
 
 
 # Load model once
+model = UNet(in_channels=3, out_channels=1).to(device)
+
 ckpt = torch.load(WEIGHTS_PATH, map_location=device)
 state = ckpt["model"]
-model = build_deeplabv3(num_classes=1).to(device)
 model.load_state_dict(state, strict=True)
 model.eval()
 
@@ -84,6 +106,9 @@ async def analyze(
     hyst_low: float = Form(0.2),
     hyst_high: float = Form(0.50),
 ):
+    # metrics defaults (avoid NameError on paths without ref mask)
+    tp = fp = fn = tn = precision = recall = f1 = iou = dice = None
+
     logger.info("=== /analyze called ===")
     logger.info(f"params: hyst_low={hyst_low} hyst_high={hyst_high} use_refine={use_refine}")
     try:
@@ -115,7 +140,7 @@ async def analyze(
     x = to_tensor(rgb).to(device)
 
     with torch.no_grad():
-        logits = forward_logits(model, x)
+        logits = model(x)
         prob = torch.sigmoid(logits)[0, 0].cpu().numpy()
 
     pred = hysteresis(prob, hyst_low, hyst_high).astype(np.uint8)
@@ -157,6 +182,15 @@ async def analyze(
             fp = int(fp_mask.sum())
             fn = int(fn_mask.sum())
 
+            # AFTER_MANUAL_TPFPFN: derive PR/F1/IoU/Dice from tp/fp/fn
+            def safe_div(a, b):
+                return float(a) / float(b) if b != 0 else None
+            precision = safe_div(tp, tp + fp)
+            recall    = safe_div(tp, tp + fn)
+            f1        = safe_div(2 * tp, 2 * tp + fp + fn)
+            iou       = safe_div(tp, tp + fp + fn)
+            dice      = f1
+
             overlay[tp_mask] = [0, 255, 0]
             overlay[fp_mask] = [255, 0, 0]
             overlay[fn_mask] = [0, 0, 255]
@@ -183,6 +217,12 @@ async def analyze(
             "tp": tp,
             "fp": fp,
             "fn": fn,
+            "tn": tn,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "iou": iou,
+            "dice": dice,
             "hyst_low": hyst_low,
             "hyst_high": hyst_high,
             "use_refine": use_refine,
