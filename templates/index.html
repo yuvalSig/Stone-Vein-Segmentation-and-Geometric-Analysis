@@ -129,11 +129,6 @@ Apply morphological closing (connect cracks)
     <h3>Overlay</h3>
       <img src="data:image/png;base64,{{ overlay_b64 }}"/>
     </div>
-      <div class="metric"><b>False Positives:</b> {{ fp }}</div>
-      <div class="metric"><b>False Negatives:</b> {{ fn }}</div>
-    </div>
-    {% endif %}
-  </div>
 </div>
   </div>
   {% endif %}
@@ -149,6 +144,8 @@ Apply morphological closing (connect cracks)
 
 <p style="text-align:center; margin-top:12px;"><b>Components:</b> {{ n_components }}</p>
 
+<div class="card" style="margin-top:16px;">
+
 {% if tp is defined and tp is not none %}
 <h3>Confusion Matrix & Metrics</h3>
 <table style="border-collapse:collapse; width:420px; margin:12px auto;">
@@ -161,10 +158,12 @@ Apply morphological closing (connect cracks)
     <tr><td><b>F1-score</b></td><td>{{ "%.3f"|format(f1) if (f1 is defined and f1 is not none) else "—" }}</td></tr>
   </tbody>
 </table>
+</div>
 {% endif %}
 
 {% if crack_rows %}
   <h3>Crack table</h3>
+<div style="overflow-x:auto;">
   <table id="crackTable" style="border-collapse:collapse; width:100%;">
     <thead>
       <tr>
@@ -188,6 +187,7 @@ Apply morphological closing (connect cracks)
 {% endif %}
       </div>
   </div>
+</div>
 
 <script>
   const marbleInput = document.getElementById("marbleInput");
