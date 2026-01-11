@@ -10,7 +10,8 @@
     .title { text-align:center; margin: 8px 0 16px; }
     .muted { color:#666; font-size: 14px; }
     .controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center; }
-    .btn { padding:10px 14px; border:0; border-radius:10px; cursor:pointer; background:#111; color:#fff; }
+    .btn { padding:10px 14px; border:0; border-radius:10px; cursor:pointer; background:#16a34a; color:#fff; }
+.btn:hover{ background:#15803d; }
     .btn2 { padding:10px 14px; border:1px solid #ddd; border-radius:10px; cursor:pointer; background:#fff; }
     input[type="number"]{ width:90px; padding:6px; }
 
@@ -41,13 +42,37 @@
     .col { flex: 1 1 480px; }
     .outimg { width:100%; border-radius:10px; border:1px solid #eee; }
   
-  .imggrid { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; align-items:flex-start; }
-  .imgcard { flex: 1 1 240px; max-width: 260px; }
-  .imgcard h3 { margin: 0 0 8px; text-align:center; }
-  .imgcard img { width:100%; border-radius:10px; border:1px solid #eee; background:#fff; }
+  .imggrid{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap:16px;
+  align-items:start;
+  justify-items:stretch;
+}
+@media (max-width: 1100px){
+  .imggrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px){
+  .imggrid{ grid-template-columns: 1fr; }
+}
+.imgcard{ min-width: 0; }
+.imgcard h3{ margin:0 0 8px; text-align:center; }
+.imgcard img{ width:100%; border-radius:10px; border:1px solid #eee; background:#fff; display:block; }
   .doc { text-align:center; margin: 10px 0 14px; }
   .doc code { background:#f2f2f2; padding:2px 6px; border-radius:6px; }
+
+/* CM_TABLE_AUTOFIX */
+.cmwrap{ display:flex; justify-content:center; }
+.cm{ border-collapse:collapse; margin:12px auto; width:520px; max-width:100%; }
+.cm th, .cm td{ border:1px solid #ddd; padding:10px; text-align:center; }
+.cm th{ background:#f7f7f7; font-weight:700; }
+.cm .rowhdr{ background:#fbfbfb; text-align:left; font-weight:700; }
+.kv{ border-collapse:collapse; margin:12px auto; width:520px; max-width:100%; }
+.kv th, .kv td{ border:1px solid #ddd; padding:8px; }
+.kv th{ background:#f7f7f7; text-align:left; width:55%; }
+.kv td{ text-align:right; }
 </style>
+
 </head>
 <body>
   <div class="container">
@@ -102,89 +127,135 @@ Apply morphological closing (connect cracks)
     </div>
 
     {% if pred_b64 %}
-      <div style="height:16px"></div>
-      <div class="card">
-        <div class="doc">
-  <div><b>Run settings</b></div>
-  <div class="muted">
-    Hysteresis thresholds: <code>low={{ hyst_low }}</code>, <code>high={{ hyst_high }}</code>
-    &nbsp;|&nbsp; Hysteresis keeps weak pixels only if connected to strong pixels.
-  </div>
-  <div class="muted">
-    Morphology refinement: <code>{{ "ON" if use_refine else "OFF" }}</code>
-  </div>
-</div>
+  <div style="height:16px"></div>
 
-<div class="imggrid">
-  <div class="imgcard">
-    <h3>Original</h3>
-    <img src="data:image/png;base64,{{ marble_b64 }}"/>
-  </div>
-  <div class="imgcard">
-    <h3>Pred mask</h3>
-    <img src="data:image/png;base64,{{ pred_b64 }}"/>
-  </div>
-  
-<div class="imgcard">
-    <h3>Overlay</h3>
-  <div class="imgOverlayWrap">
-    <img src="data:image/png;base64,{{ overlay_b64 }}"/>
-    {% if tp is not none %}
-    <div class="metricsOverlay">
-      <div class="metric"><b>True Positives:</b> {{ tp }}</div>
-      <div class="metric"><b>False Positives:</b> {{ fp }}</div>
-      <div class="metric"><b>False Negatives:</b> {{ fn }}</div>
-      {% if precision is not none %}
-      <div class="metric"><b>Precision:</b> {{ "%.3f"|format(precision) }}</div>
-      <div class="metric"><b>Recall:</b> {{ "%.3f"|format(recall) }}</div>
-      <div class="metric"><b>F1-score:</b> {{ "%.3f"|format(f1) }}</div>
+  <div class="card">
+    <div class="doc">
+      <div><b>Run settings</b></div>
+      <div class="muted">
+        Hysteresis thresholds: <code>low={{ hyst_low }}</code>, <code>high={{ hyst_high }}</code>
+        &nbsp;|&nbsp; Hysteresis keeps weak pixels only if connected to strong pixels.
+      </div>
+      <div class="muted">
+        Morphology refinement: <code>{{ "ON" if use_refine else "OFF" }}</code>
+      </div>
+    </div>
+
+    <div class="imggrid">
+      <div class="imgcard">
+        <h3>Original</h3>
+        <img src="data:image/png;base64,{{ marble_b64 }}" alt="Original">
+      </div>
+
+      <div class="imgcard">
+        <h3>Pred mask</h3>
+        <img src="data:image/png;base64,{{ pred_b64 }}" alt="Pred mask">
+      </div>
+
+      <div class="imgcard">
+        <h3>Overlay</h3>
+        <img src="data:image/png;base64,{{ overlay_b64 }}" alt="Overlay">
+      </div>
+
+      {% if thin_b64 %}
+      <div class="imgcard">
+        <h3>Thin mask</h3>
+        <img src="data:image/png;base64,{{ thin_b64 }}" alt="Thin mask">
+      </div>
       {% endif %}
     </div>
-    {% endif %}
   </div>
-</div>
-    {% if precision is not none %}
-      <div class="row muter"><b>P</b>: {{ "%.3f"|format(precision) }} &nbsp; <b>R</b>: {{ "%.3f"|format(recall) }} &nbsp; <b>F1</b>: {{ "%.3f"|format(f1) }}</div>
-    {% endif %}
-  </div>
-  {% endif %}
-    </div>
-  </div>
-  {% if thin_b64 %}
-  <div class="imgcard">
-    <h3>Thin mask</h3>
-    <img src="data:image/png;base64,{{ thin_b64 }}"/>
-  </div>
-  {% endif %}
-</div>
 
-<p style="text-align:center; margin-top:12px;"><b>Components:</b> {{ n_components }}</p>
+  <p style="text-align:center; margin-top:12px;"><b>Components:</b> {{ n_components }}</p>
 
-{% if crack_rows %}
-  <h3>Crack table</h3>
-  <table id="crackTable" style="border-collapse:collapse; width:100%;">
+<div class="card" style="margin-top:16px;">
+
+  {% if tp is defined and tp is not none %}
+  <h3 style="margin-top:0;">Confusion Matrix</h3>
+
+{# TN handling:
+   - Prefer backend-provided tn if exists.
+   - Else compute tn if total_pixels provided (common in pixel-level eval).
+   - Else show "—".
+#}
+{% set tn_val = (tn if (tn is defined and tn is not none) else ((total_pixels - tp - fp - fn) if (total_pixels is defined and total_pixels is not none) else none)) %}
+
+<div class="cmwrap">
+  <table class="cm" aria-label="Confusion Matrix">
     <thead>
       <tr>
-        <th style="border:1px solid #ddd; padding:6px;">Length (px)</th>
-        <th style="border:1px solid #ddd; padding:6px;">Angle (deg)</th>
-        <th style="border:1px solid #ddd; padding:6px;">Mean width (px)</th>
-        <th style="border:1px solid #ddd; padding:6px;">Max width (px)</th>
+        <th></th>
+        <th colspan="2">Predicted</th>
+      </tr>
+      <tr>
+        <th></th>
+        <th>Crack (Positive)</th>
+        <th>Background (Negative)</th>
       </tr>
     </thead>
     <tbody>
-      {% for r in crack_rows %}
       <tr>
-        <td style="border:1px solid #ddd; padding:6px;">{{ r["length_px"] }}</td>
-        <td style="border:1px solid #ddd; padding:6px;">{{ "%.1f"|format(r["orientation_deg"]) }}</td>
-        <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r["mean_width_px"]) }}</td>
-        <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r["max_width_px"]) }}</td>
+        <th class="rowhdr">Actual Crack (Positive)</th>
+        <td><b>TP</b><br>{{ tp }}</td>
+        <td><b>FN</b><br>{{ fn }}</td>
       </tr>
-      {% endfor %}
+      <tr>
+        <th class="rowhdr">Actual Background (Negative)</th>
+        <td><b>FP</b><br>{{ fp }}</td>
+        <td><b>TN</b><br>{{ tn_val if tn_val is not none else "—" }}</td>
+      </tr>
     </tbody>
   </table>
+</div>
+
+<h3 style="margin-top:16px;">Metrics</h3>
+<table class="kv" aria-label="Metrics">
+  <tbody>
+    <tr>
+      <th>Precision</th>
+      <td>{{ "%.3f"|format(precision) if (precision is defined and precision is not none) else "—" }}</td>
+    </tr>
+    <tr>
+      <th>Recall</th>
+      <td>{{ "%.3f"|format(recall) if (recall is defined and recall is not none) else "—" }}</td>
+    </tr>
+    <tr>
+      <th>F1-score</th>
+      <td>{{ "%.3f"|format(f1) if (f1 is defined and f1 is not none) else "—" }}</td>
+    </tr>
+  </tbody>
+</table>
 {% endif %}
-      </div>
+
+  {% if crack_rows %}
+  <h3 style="margin-top:16px;">Crack table</h3>
+  <div style="overflow-x:auto;">
+    <table id="crackTable" style="border-collapse:collapse; width:100%;">
+      <thead>
+        <tr>
+          <th style="border:1px solid #ddd; padding:6px;">Length (px)</th>
+          <th style="border:1px solid #ddd; padding:6px;">Angle (deg)</th>
+          <th style="border:1px solid #ddd; padding:6px;">Mean width (px)</th>
+          <th style="border:1px solid #ddd; padding:6px;">Max width (px)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in crack_rows %}
+        <tr>
+          <td style="border:1px solid #ddd; padding:6px;">{{ r["length_px"] }}</td>
+          <td style="border:1px solid #ddd; padding:6px;">{{ "%.1f"|format(r["orientation_deg"]) }}</td>
+          <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r["mean_width_px"]) }}</td>
+          <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r["max_width_px"]) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
+  {% endif %}
+
+</div>
+
+{% endif %}
 
 <script>
   const marbleInput = document.getElementById("marbleInput");
@@ -299,7 +370,6 @@ Apply morphological closing (connect cracks)
     // default: always send canvas (empty canvas == empty mask)
     refmaskField.value = canvas.toDataURL("image/png");
   }
-});
 });
 </script>
 </body>
