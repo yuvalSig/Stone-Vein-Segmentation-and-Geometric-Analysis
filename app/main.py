@@ -5,8 +5,6 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
-import logging
-import traceback
 from PIL import Image
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import HTMLResponse
@@ -27,17 +25,6 @@ app.mount("/static", StaticFiles(directory=f"{APP_DIR}/static"), name="static")
 
 device = torch.device("cpu")
 
-
-
-# ---- debug logger ----
-logger = logging.getLogger("crack_demo")
-if not logger.handlers:
-    logger.setLevel(logging.INFO)
-    _h = logging.FileHandler("/tmp/crack_demo_debug.log")
-    _h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
-    logger.addHandler(_h)
-logger.propagate = False
-# ----------------------
 
 def img_to_b64(pil_img: Image.Image) -> str:
     buf = BytesIO()
@@ -83,20 +70,6 @@ async def analyze(
     hyst_low: float = Form(0.2),
     hyst_high: float = Form(0.50),
 ):
-    logger.info("=== /analyze called ===")
-    logger.info(f"params: hyst_low={hyst_low} hyst_high={hyst_high} use_refine={use_refine}")
-    try:
-        logger.info(f"marble filename={getattr(marble,"filename",None)}")
-    except Exception:
-        pass
-
-    logger.info("=== /analyze called ===")
-    logger.info(f"params: hyst_low={hyst_low} hyst_high={hyst_high} use_refine={use_refine}")
-    try:
-        logger.info(f"marble filename={getattr(marble,"filename",None)}")
-    except Exception:
-        pass
-
     # --- read & save marble upload (for eval scripts) ---
     marble_bytes = await marble.read()
     Path(f"{APP_DIR}/data/images").mkdir(parents=True, exist_ok=True)
