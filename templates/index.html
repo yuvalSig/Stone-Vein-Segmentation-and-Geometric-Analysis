@@ -120,16 +120,19 @@ Apply morphological closing (connect cracks)
   <table id="crackTable" style="border-collapse:collapse; width:100%;">
     <thead>
       <tr>
+        <th style="border:1px solid #ddd; padding:6px;">Length (px)</th>
         <th style="border:1px solid #ddd; padding:6px;">Angle (deg)</th>
+        <th style="border:1px solid #ddd; padding:6px;">Mean width (px)</th>
+        <th style="border:1px solid #ddd; padding:6px;">Max width (px)</th>
       </tr>
     </thead>
     <tbody>
       {% for r in crack_rows %}
       <tr>
-        <td style="border:1px solid #ddd; padding:6px;">{{ r.length_px }}</td>
-        <td style="border:1px solid #ddd; padding:6px;">{{ "%.1f"|format(r.orientation_deg) }}</td>
-        <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r.mean_width_px) }}</td>
-        <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r.max_width_px) }}</td>
+        <td style="border:1px solid #ddd; padding:6px;">{{ r["length_px"] }}</td>
+        <td style="border:1px solid #ddd; padding:6px;">{{ "%.1f"|format(r["orientation_deg"]) }}</td>
+        <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r["mean_width_px"]) }}</td>
+        <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r["max_width_px"]) }}</td>
       </tr>
       {% endfor %}
     </tbody>
