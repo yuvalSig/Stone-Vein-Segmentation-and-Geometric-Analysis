@@ -24,3 +24,4 @@ runs/
 # secrets
 .env
 *.pem
+app/best.pt
