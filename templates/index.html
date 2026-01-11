@@ -124,16 +124,22 @@ Apply morphological closing (connect cracks)
     <h3>Pred mask</h3>
     <img src="data:image/png;base64,{{ pred_b64 }}"/>
   </div>
-  
-<div class="imgcard">
+  <div class="imgcard">
     <h3>Overlay</h3>
-      <img src="data:image/png;base64,{{ overlay_b64 }}"/>
-    </div>
-</div>
+<div class="imgOverlayWrap">
+  <img src="data:image/png;base64,{{ overlay_b64 }}"/>
+  {% if tp is not none %}
+  <div class="metricsOverlay">
+    <div class="row"><b>TP</b>: {{ tp }} &nbsp; <b>FP</b>: {{ fp }} &nbsp; <b>FN</b>: {{ fn }}</div>
+    {% if precision is not none %}
+      <div class="row muter"><b>P</b>: {{ "%.3f"|format(precision) }} &nbsp; <b>R</b>: {{ "%.3f"|format(recall) }} &nbsp; <b>F1</b>: {{ "%.3f"|format(f1) }}</div>
+    {% endif %}
   </div>
   {% endif %}
-    </div>
   </div>
+  {% endif %}
+</div>
+</div>
   {% if thin_b64 %}
   <div class="imgcard">
     <h3>Thin mask</h3>
@@ -144,26 +150,8 @@ Apply morphological closing (connect cracks)
 
 <p style="text-align:center; margin-top:12px;"><b>Components:</b> {{ n_components }}</p>
 
-<div class="card" style="margin-top:16px;">
-
-{% if tp is defined and tp is not none %}
-<h3>Confusion Matrix & Metrics</h3>
-<table style="border-collapse:collapse; width:420px; margin:12px auto;">
-  <tbody>
-    <tr><td><b>True Positives</b></td><td>{{ tp }}</td></tr>
-    <tr><td><b>False Positives</b></td><td>{{ fp }}</td></tr>
-    <tr><td><b>False Negatives</b></td><td>{{ fn }}</td></tr>
-    <tr><td><b>Precision</b></td><td>{{ "%.3f"|format(precision) if (precision is defined and precision is not none) else "—" }}</td></tr>
-    <tr><td><b>Recall</b></td><td>{{ "%.3f"|format(recall) if (recall is defined and recall is not none) else "—" }}</td></tr>
-    <tr><td><b>F1-score</b></td><td>{{ "%.3f"|format(f1) if (f1 is defined and f1 is not none) else "—" }}</td></tr>
-  </tbody>
-</table>
-</div>
-{% endif %}
-
 {% if crack_rows %}
   <h3>Crack table</h3>
-<div style="overflow-x:auto;">
   <table id="crackTable" style="border-collapse:collapse; width:100%;">
     <thead>
       <tr>
@@ -187,7 +175,6 @@ Apply morphological closing (connect cracks)
 {% endif %}
       </div>
   </div>
-</div>
 
 <script>
   const marbleInput = document.getElementById("marbleInput");
