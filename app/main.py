@@ -2,19 +2,16 @@ import base64
 from io import BytesIO
 from pathlib import Path
 
-
 import cv2
 import numpy as np
 import torch
-import logging
-import traceback
 from PIL import Image
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
-from app.unet_model import UNet
+
 from app.model import build_deeplabv3, forward_logits
 from app.infer import pil_to_rgb, to_tensor, hysteresis, refine_mask
 from app.crack_metrics import crack_table_from_mask, skeletonize_opencv
@@ -28,17 +25,6 @@ app.mount("/static", StaticFiles(directory=f"{APP_DIR}/static"), name="static")
 
 device = torch.device("cpu")
 
-
-
-# ---- debug logger ----
-logger = logging.getLogger("crack_demo")
-if not logger.handlers:
-    logger.setLevel(logging.INFO)
-    _h = logging.FileHandler("/tmp/crack_demo_debug.log")
-    _h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
-    logger.addHandler(_h)
-logger.propagate = False
-# ----------------------
 
 def img_to_b64(pil_img: Image.Image) -> str:
     buf = BytesIO()
@@ -62,21 +48,6 @@ def decode_data_url_png(data_url: str) -> bytes | None:
 ckpt = torch.load(WEIGHTS_PATH, map_location=device)
 state = ckpt["model"]
 model = build_deeplabv3(num_classes=1).to(device)
-# SWITCH_TO_UNET_IF_NEEDED
-def _is_unet_state(sd: dict) -> bool:
-    try:
-        ks = list(sd.keys())
-        return any(k.startswith("downs.") for k in ks) and any(k.startswith("ups.") for k in ks)
-    except Exception:
-        return False
-
-try:
-    if isinstance(state, dict) and _is_unet_state(state):
-        print("Detected UNet checkpoint -> building UNet model")
-        model = UNet(in_channels=3, out_channels=1).to(device)
-except Exception as e:
-    print("UNet auto-detect failed:", e)
-
 model.load_state_dict(state, strict=True)
 model.eval()
 
@@ -99,20 +70,6 @@ async def analyze(
     hyst_low: float = Form(0.2),
     hyst_high: float = Form(0.50),
 ):
-    logger.info("=== /analyze called ===")
-    logger.info(f"params: hyst_low={hyst_low} hyst_high={hyst_high} use_refine={use_refine}")
-    try:
-        logger.info(f"marble filename={getattr(marble,"filename",None)}")
-    except Exception:
-        pass
-
-    logger.info("=== /analyze called ===")
-    logger.info(f"params: hyst_low={hyst_low} hyst_high={hyst_high} use_refine={use_refine}")
-    try:
-        logger.info(f"marble filename={getattr(marble,"filename",None)}")
-    except Exception:
-        pass
-
     # --- read & save marble upload (for eval scripts) ---
     marble_bytes = await marble.read()
     Path(f"{APP_DIR}/data/images").mkdir(parents=True, exist_ok=True)
@@ -123,9 +80,6 @@ async def analyze(
 
     marble_pil = Image.open(BytesIO(marble_bytes))
 
-
-    marble_rgb = marble_pil.convert("RGB")
-    marble_b64 = img_to_b64(marble_rgb)
     rgb = pil_to_rgb(marble_pil)
     x = to_tensor(rgb).to(device)
 
@@ -144,7 +98,7 @@ async def analyze(
     thin_img = Image.fromarray((thin * 255).astype(np.uint8))
     thin_b64 = img_to_b64(thin_img)
 
-    overlay = np.array(marble_rgb)
+    overlay = np.array(marble_pil.convert("RGB"))
     overlay = cv2.resize(overlay, (pred.shape[1], pred.shape[0]), interpolation=cv2.INTER_AREA)
 
     # optional reference mask: drawn (b64) has priority over uploaded file
@@ -172,15 +126,6 @@ async def analyze(
             fp = int(fp_mask.sum())
             fn = int(fn_mask.sum())
 
-
-
-
-
-
-              # Metrics
-              precision = (tp/(tp+fp)) if (tp is not None and fp is not None and (tp+fp)>0) else None
-              recall    = (tp/(tp+fn)) if (tp is not None and fn is not None and (tp+fn)>0) else None
-              f1        = ((2*precision*recall)/(precision+recall)) if (precision is not None and recall is not None and (precision+recall)>0) else None
             overlay[tp_mask] = [0, 255, 0]
             overlay[fp_mask] = [255, 0, 0]
             overlay[fn_mask] = [0, 0, 255]
@@ -199,7 +144,6 @@ async def analyze(
         "index.html",
         {
             "request": request,
-            "marble_b64": marble_b64,
             "pred_b64": img_to_b64(pred_img),
             "overlay_b64": img_to_b64(overlay_img),
             "thin_b64": thin_b64,
@@ -207,15 +151,8 @@ async def analyze(
             "tp": tp,
             "fp": fp,
             "fn": fn,
-              "precision": precision,
-              "recall": recall,
-              "f1": f1,
-              "precision": precision,
-              "recall": recall,
-              "f1": f1,
             "hyst_low": hyst_low,
             "hyst_high": hyst_high,
-            "use_refine": use_refine,
             "crack_rows": crack_rows,
         },
     )
