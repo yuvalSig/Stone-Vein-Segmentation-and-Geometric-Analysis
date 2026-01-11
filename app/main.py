@@ -158,6 +158,7 @@ async def analyze(
             ref_bytes = b
 
     tp = fp = fn = None
+      precision = recall = f1 = None
     if ref_bytes is not None:
         try:
             ref_pil = Image.open(BytesIO(ref_bytes)).convert("L")
@@ -172,6 +173,12 @@ async def analyze(
             fp = int(fp_mask.sum())
             fn = int(fn_mask.sum())
 
+
+
+              # Metrics
+              precision = (tp/(tp+fp)) if (tp is not None and fp is not None and (tp+fp)>0) else None
+              recall    = (tp/(tp+fn)) if (tp is not None and fn is not None and (tp+fn)>0) else None
+              f1        = ((2*precision*recall)/(precision+recall)) if (precision is not None and recall is not None and (precision+recall)>0) else None
             overlay[tp_mask] = [0, 255, 0]
             overlay[fp_mask] = [255, 0, 0]
             overlay[fn_mask] = [0, 0, 255]
@@ -198,6 +205,9 @@ async def analyze(
             "tp": tp,
             "fp": fp,
             "fn": fn,
+              "precision": precision,
+              "recall": recall,
+              "f1": f1,
             "hyst_low": hyst_low,
             "hyst_high": hyst_high,
             "use_refine": use_refine,
