@@ -128,14 +128,6 @@ Apply morphological closing (connect cracks)
     <h3>Overlay</h3>
 <div class="imgOverlayWrap">
   <img src="data:image/png;base64,{{ overlay_b64 }}"/>
-  {% if tp is not none %}
-  <div class="metricsOverlay">
-    <div class="row"><b>TP</b>: {{ tp }} &nbsp; <b>FP</b>: {{ fp }} &nbsp; <b>FN</b>: {{ fn }}</div>
-    {% if precision is not none %}
-      <div class="row muter"><b>P</b>: {{ "%.3f"|format(precision) }} &nbsp; <b>R</b>: {{ "%.3f"|format(recall) }} &nbsp; <b>F1</b>: {{ "%.3f"|format(f1) }}</div>
-    {% endif %}
-  </div>
-  {% endif %}
   </div>
   {% endif %}
 </div>
@@ -173,7 +165,16 @@ Apply morphological closing (connect cracks)
     </tbody>
   </table>
 {% endif %}
+
+
+        {% if tp is not none %}
+          <p><b>TP:</b> {{ tp }} | <b>FP:</b> {{ fp }} | <b>FN:</b> {{ fn }}</p>
+          <p class="muted">Overlay legend: TP=Green, FP=Red, FN=Blue</p>
+        {% else %}
+          <p class="muted">Overlay legend: Pred=Red</p>
+        {% endif %}
       </div>
+    {% endif %}
   </div>
 
 <script>
