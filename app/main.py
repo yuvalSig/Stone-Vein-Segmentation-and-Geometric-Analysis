@@ -1,231 +1,193 @@
-import base64
+import os, base64, logging, torch
 from io import BytesIO
-from pathlib import Path
-
-
-import cv2
 import numpy as np
-import torch
-import logging
-import traceback
 from PIL import Image
+
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
-from app.unet_model import UNet
-from app.infer import pil_to_rgb, to_tensor, hysteresis, refine_mask
-from app.crack_metrics import crack_table_from_mask, skeletonize_opencv
+from fastapi.staticfiles import StaticFiles
 
-def pixel_metrics(pred_mask, ref_mask):
-    import numpy as np
+# Logging configuration
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("crack_final")
 
-    pred = (pred_mask > 0).astype(np.uint8)
-    ref  = (ref_mask  > 0).astype(np.uint8)
-
-    tp = int((pred & ref).sum())
-    fp = int((pred & (1 - ref)).sum())
-    fn = int(((1 - pred) & ref).sum())
-    tn = int(((1 - pred) & (1 - ref)).sum())
-
-    def safe_div(a, b): return float(a) / float(b) if b else None
-
-    precision = safe_div(tp, tp + fp)
-    recall    = safe_div(tp, tp + fn)
-    f1        = safe_div(2*tp, 2*tp + fp + fn)
-    iou       = safe_div(tp, tp + fp + fn)
-    dice      = f1
-
-    return tp, fp, fn, tn, precision, recall, f1, iou, dice
-
-
+# Path configurations
 APP_DIR = "/home/ssm-user/crack_demo"
 WEIGHTS_PATH = f"{APP_DIR}/app/best.pt"
 
-app = FastAPI()
+# FastAPI app initialization
+app = FastAPI(root_path="/segmentation-engine")
 templates = Jinja2Templates(directory=f"{APP_DIR}/templates")
-app.mount("/static", StaticFiles(directory=f"{APP_DIR}/static"), name="static")
 
-device = torch.device("cpu")
+# Mount static files if directory exists
+if os.path.exists(f"{APP_DIR}/static"):
+    app.mount("/static", StaticFiles(directory=f"{APP_DIR}/static"), name="static")
 
+# Global model and device placeholders
+_model = None
+_device = None
 
+def _ensure_model_loaded():
+    """Initializes and loads the UNet model weights into memory if not already loaded."""
+    global _model, _device
+    if _model is not None:
+        return
+    torch.set_num_threads(1)
+    from app.unet_model import UNet
+    _device = torch.device("cpu")
+    model = UNet(in_channels=3, out_channels=1).to(_device)
 
-# ---- debug logger ----
-logger = logging.getLogger("crack_demo")
-if not logger.handlers:
-    logger.setLevel(logging.INFO)
-    _h = logging.FileHandler("/tmp/crack_demo_debug.log")
-    _h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
-    logger.addHandler(_h)
-logger.propagate = False
-# ----------------------
+    ckpt = torch.load(WEIGHTS_PATH, map_location=_device, mmap=True)
+    state = ckpt["model"] if isinstance(ckpt, dict) and "model" in ckpt else ckpt
+    new_state = {k.replace("final_conv.", "head."): v for k, v in state.items()}
+    model.load_state_dict(new_state, strict=False)
+    model.eval()
+    _model = model
 
-def img_to_b64(pil_img: Image.Image) -> str:
+def img_to_b64(np_img):
+    """Converts a numpy image array to a base64 encoded PNG string."""
+    if np_img.dtype == bool or np_img.max() <= 1:
+        np_img = (np_img * 255).astype(np.uint8)
+    img = Image.fromarray(np_img.astype(np.uint8))
     buf = BytesIO()
-    pil_img.save(buf, format="PNG")
+    img.save(buf, format="PNG")
     return base64.b64encode(buf.getvalue()).decode("utf-8")
 
-
-def decode_data_url_png(data_url: str) -> bytes | None:
-    if not data_url:
-        return None
-    try:
-        if data_url.startswith("data:"):
-            _, b64 = data_url.split(",", 1)
-            return base64.b64decode(b64)
-        return base64.b64decode(data_url)
-    except Exception:
-        return None
-
-
-# Load model once
-model = UNet(in_channels=3, out_channels=1).to(device)
-
-ckpt = torch.load(WEIGHTS_PATH, map_location=device)
-state = ckpt["model"]
-model.load_state_dict(state, strict=True)
-model.eval()
-
-
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    return templates.TemplateResponse(
-        "index.html",
-        {"request": request, "hyst_low": 0.2, "hyst_high": 0.50},
-    )
-
+async def home(request: Request):
+    """Renders the main upload page."""
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/analyze", response_class=HTMLResponse)
 async def analyze(
     request: Request,
     marble: UploadFile = File(...),
-    refmask: UploadFile | None = File(None),
-    refmask_b64: str | None = Form(None),
-    use_refine: bool = Form(False),
-    hyst_low: float = Form(0.2),
-    hyst_high: float = Form(0.50),
+    refmask: UploadFile = File(None),
+    refmask_b64: str = Form(None),
+    low_thr: float = Form(0.2),
+    high_thr: float = Form(0.5)
 ):
-    # metrics defaults (avoid NameError on paths without ref mask)
-    tp = fp = fn = tn = precision = recall = f1 = iou = dice = None
-
-    logger.info("=== /analyze called ===")
-    logger.info(f"params: hyst_low={hyst_low} hyst_high={hyst_high} use_refine={use_refine}")
+    """
+    Main analysis endpoint: performs crack segmentation, 
+    calculates metrics, and generates an overlay comparison.
+    """
     try:
-        logger.info(f"marble filename={getattr(marble,"filename",None)}")
-    except Exception:
-        pass
+        _ensure_model_loaded()
+        from app.infer import to_tensor, hysteresis, refine_mask
+        from app.infer_sliding_cloud import sliding_prob
+        from app.crack_metrics import crack_table_from_mask, skeletonize_opencv
 
-    logger.info("=== /analyze called ===")
-    logger.info(f"params: hyst_low={hyst_low} hyst_high={hyst_high} use_refine={use_refine}")
-    try:
-        logger.info(f"marble filename={getattr(marble,"filename",None)}")
-    except Exception:
-        pass
+        MAX_W, MAX_H = 1200, 1200
 
-    # --- read & save marble upload (for eval scripts) ---
-    marble_bytes = await marble.read()
-    Path(f"{APP_DIR}/data/images").mkdir(parents=True, exist_ok=True)
-    safe_name = (marble.filename or "upload.png").replace("/", "_").replace("\\", "_")
-    with open(f"{APP_DIR}/data/images/{safe_name}", "wb") as f:
-        f.write(marble_bytes)
-    # ----------------------------------------------------
+        # Read and validate image dimensions
+        contents = await marble.read()
+        img = Image.open(BytesIO(contents)).convert("RGB")
+        w, h = img.size
 
-    marble_pil = Image.open(BytesIO(marble_bytes))
+        if w > MAX_W or h > MAX_H:
+            msg = f"Unsupported image size: {w}x{h}. Max supported is {MAX_W}x{MAX_H}."
+            logger.warning(msg)
+            return HTMLResponse(
+                content=f"<script>alert('{msg}'); window.location.href='/segmentation-engine/';</script>",
+                status_code=413,
+            )
 
+        rgb = np.array(img)
 
-    marble_rgb = marble_pil.convert("RGB")
-    marble_b64 = img_to_b64(marble_rgb)
-    rgb = pil_to_rgb(marble_pil)
-    x = to_tensor(rgb).to(device)
+        # Handle optional Ground Truth mask from file or base64
+        ref_mask_img = None
+        if refmask and refmask.size > 0:
+            ref_bytes = await refmask.read()
+            ref_mask_img = Image.open(BytesIO(ref_bytes)).convert("L")
+        elif refmask_b64 and "," in refmask_b64:
+            _, encoded = refmask_b64.split(",", 1)
+            ref_mask_img = Image.open(BytesIO(base64.b64decode(encoded))).convert("L")
+            if np.array(ref_mask_img).max() == 0:
+                ref_mask_img = None
 
-    with torch.no_grad():
-        logits = model(x)
-        prob = torch.sigmoid(logits)[0, 0].cpu().numpy()
+        # Model inference using sliding window
+        x = to_tensor(rgb).to(_device)
+        with torch.no_grad():
+            prob = sliding_prob(_model, x[0], patch=448, overlap=224, device=_device).cpu().numpy()
 
-    pred = hysteresis(prob, hyst_low, hyst_high).astype(np.uint8)
+        # Post-processing: Hysteresis thresholding and area refinement
+        pred01 = hysteresis(prob, low_thr, high_thr)
+        pred01 = refine_mask(pred01, min_area=50).astype(np.uint8)
 
-    if use_refine:
-        pred = refine_mask(pred).astype(np.uint8)
+        # Calculate crack properties (length, orientation, width)
+        raw_rows = crack_table_from_mask(pred01)
+        formatted_rows = [
+            {"length_px": r.get("length", 0),
+             "orientation_deg": r.get("orientation", 0),
+             "mean_width_px": r.get("avg_width", 0)}
+            for r in raw_rows
+        ]
 
-    # crack table (length / angle / width)
-    crack_rows = crack_table_from_mask(pred)
-    thin = skeletonize_opencv(pred)
-    thin_img = Image.fromarray((thin * 255).astype(np.uint8))
-    thin_b64 = img_to_b64(thin_img)
+        skel = skeletonize_opencv(pred01)
+        overlay = rgb.copy()
 
-    overlay = np.array(marble_rgb)
-    overlay = cv2.resize(overlay, (pred.shape[1], pred.shape[0]), interpolation=cv2.INTER_AREA)
+        cm, metrics = None, {"precision": 0, "recall": 0, "f1": 0}
+        cm_pct = None
 
-    # optional reference mask: drawn (b64) has priority over uploaded file
-    ref_bytes = None
-    if refmask_b64:
-        ref_bytes = decode_data_url_png(refmask_b64)
+        # Calculate evaluation metrics if Ground Truth is provided
+        if ref_mask_img is not None:
+            if ref_mask_img.size != (pred01.shape[1], pred01.shape[0]):
+                ref_mask_img = ref_mask_img.resize(
+                    (pred01.shape[1], pred01.shape[0]), Image.NEAREST
+                )
 
-    if ref_bytes is None and refmask is not None and getattr(refmask, "filename", ""):
-        b = await refmask.read()
-        if b and len(b) > 0:
-            ref_bytes = b
+            gt01 = (np.array(ref_mask_img) > 127).astype(np.uint8)
 
-    tp = fp = fn = None
-    if ref_bytes is not None:
-        try:
-            ref_pil = Image.open(BytesIO(ref_bytes)).convert("L")
-            ref = (np.array(ref_pil) > 127).astype(np.uint8)
-            ref = cv2.resize(ref, (pred.shape[1], pred.shape[0]), interpolation=cv2.INTER_NEAREST)
+            tp = (pred01 == 1) & (gt01 == 1)
+            fp = (pred01 == 1) & (gt01 == 0)
+            fn = (pred01 == 0) & (gt01 == 1)
+            tn = (pred01 == 0) & (gt01 == 0)
 
-            tp_mask = (pred == 1) & (ref == 1)
-            fp_mask = (pred == 1) & (ref == 0)
-            fn_mask = (pred == 0) & (ref == 1)
+            # Color coding: Green=TP, Red=FP, Blue=FN
+            overlay[tp], overlay[fp], overlay[fn] = [0,255,0], [255,0,0], [0,0,255]
 
-            tp = int(tp_mask.sum())
-            fp = int(fp_mask.sum())
-            fn = int(fn_mask.sum())
+            tp_n, fp_n, fn_n, tn_n = int(tp.sum()), int(fp.sum()), int(fn.sum()), int(tn.sum())
 
-            # AFTER_MANUAL_TPFPFN: derive PR/F1/IoU/Dice from tp/fp/fn
-            def safe_div(a, b):
-                return float(a) / float(b) if b != 0 else None
-            precision = safe_div(tp, tp + fp)
-            recall    = safe_div(tp, tp + fn)
-            f1        = safe_div(2 * tp, 2 * tp + fp + fn)
-            iou       = safe_div(tp, tp + fp + fn)
-            dice      = f1
+            eps = 1e-9
+            prec = tp_n / (tp_n + fp_n + eps)
+            rec  = tp_n / (tp_n + fn_n + eps)
 
-            overlay[tp_mask] = [0, 255, 0]
-            overlay[fp_mask] = [255, 0, 0]
-            overlay[fn_mask] = [0, 0, 255]
-        except Exception:
-            overlay[pred == 1] = [255, 0, 0]
-    else:
-        overlay[pred == 1] = [255, 0, 0]
+            cm = {"tp": tp_n, "fp": fp_n, "fn": fn_n, "tn": tn_n}
+            metrics = {
+                "precision": float(prec),
+                "recall": float(rec),
+                "f1": float((2 * prec * rec) / (prec + rec + eps))
+            }
 
-    pred_img = Image.fromarray((pred * 255).astype(np.uint8))
-    overlay_img = Image.fromarray(overlay)
+            pos_total = tp_n + fn_n
+            neg_total = tn_n + fp_n
 
-    n_comp, _ = cv2.connectedComponents(pred.astype(np.uint8), connectivity=8)
-    n_comp = max(0, n_comp - 1)
+            cm_pct = {
+                "tp": 100.0 * tp_n / pos_total if pos_total else 0.0,
+                "fn": 100.0 * fn_n / pos_total if pos_total else 0.0,
+                "tn": 100.0 * tn_n / neg_total if neg_total else 0.0,
+                "fp": 100.0 * fp_n / neg_total if neg_total else 0.0,
+            }
 
-    return templates.TemplateResponse(
-        "index.html",
-        {
+        else:
+            # Simple red overlay if no GT is provided
+            overlay[pred01 > 0] = [255, 0, 0]
+
+        return templates.TemplateResponse("result.html", {
             "request": request,
-            "marble_b64": marble_b64,
-            "pred_b64": img_to_b64(pred_img),
-            "overlay_b64": img_to_b64(overlay_img),
-            "thin_b64": thin_b64,
-            "n_components": n_comp,
-            "tp": tp,
-            "fp": fp,
-            "fn": fn,
-            "tn": tn,
-            "precision": precision,
-            "recall": recall,
-            "f1": f1,
-            "iou": iou,
-            "dice": dice,
-            "hyst_low": hyst_low,
-            "hyst_high": hyst_high,
-            "use_refine": use_refine,
-            "crack_rows": crack_rows,
-        },
-    )
+            "marble_b64": img_to_b64(rgb),
+            "pred_b64": img_to_b64(pred01),
+            "thin_b64": img_to_b64(skel),
+            "overlay_base64": img_to_b64(overlay),
+            "crack_rows": formatted_rows,
+            "n_components": len(formatted_rows),
+            "cm": cm,
+            "cm_pct": cm_pct,
+            "metrics": metrics
+        })
+
+    except Exception as e:
+        logger.exception("Pipeline Error")
+        return HTMLResponse(content=f"Error: {e}", status_code=500)
