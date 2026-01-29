@@ -1,376 +1,321 @@
 <!doctype html>
-<html>
+<html lang="en" style="scroll-behavior: smooth;">
 <head>
+  <base href="/segmentation-engine/">
   <meta charset="utf-8">
-  <title>Crack Compliance Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Stone Vein Segmentation System</title>
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  
   <style>
-    body { font-family: Arial, sans-serif; background:#fafafa; }
-    .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
-    .card { background:#fff; border:1px solid #eee; border-radius:12px; padding:16px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
-    .title { text-align:center; margin: 8px 0 16px; }
-    .muted { color:#666; font-size: 14px; }
-    .controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center; }
-    .btn { padding:10px 14px; border:0; border-radius:10px; cursor:pointer; background:#16a34a; color:#fff; }
-.btn:hover{ background:#15803d; }
-    .btn2 { padding:10px 14px; border:1px solid #ddd; border-radius:10px; cursor:pointer; background:#fff; }
-    input[type="number"]{ width:90px; padding:6px; }
+    /* Global Styles & Theme */
+    body { background-color: #f4f7f6; font-family: 'Inter', sans-serif; color: #1a202c; }
+    .container { max-width: 1200px; padding: 15px; }
+    .card { border: none; border-radius: 16px; margin-bottom: 25px; padding: 25px; background: #fff; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+    
+    /* Hero & Documentation Styles */
+    .hero-demo { width: 100%; max-height: 450px; object-fit: contain; border-radius: 12px; background: #000; border: 2px solid #e2e8f0; }
+    .process-doc { background: #f0f7ff; border-radius: 12px; padding: 20px; border: 1px solid #bee3f8; }
+    .badge-pipeline { background: #2c5282; color: white; padding: 5px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; }
+    .doc-list { list-style: disc; padding-left: 20px; margin-top: 15px; }
+    .doc-list li { margin-bottom: 10px; font-size: 0.95rem; line-height: 1.5; color: #2d3748; }
+    
+    /* Pipeline Step Visualization Grid */
+    .pipeline-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin: 20px 0; }
+    .pipeline-item { background: #fff; padding: 10px; border-radius: 12px; border: 1px solid #edf2f7; text-align: center; }
+    .pipeline-item img { width: 100%; border-radius: 10px; background: #000; }
+    .pipeline-item h6 { margin-top: 8px; font-weight: 700; font-size: 0.8rem; color: #4a5568; text-transform: uppercase; }
+    
+    /* Legend for Evaluation Results */
+    .legend { font-size: 0.75rem; margin-top: 8px; display: flex; justify-content: center; gap: 10px; font-weight: 600; }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    
+    /* Interactive Drawing Canvas Wrappers */
+    .canvasWrap { position: relative; margin: 20px auto; width: fit-content; max-width: 100%; border: 4px solid #3182ce; border-radius: 12px; background: #000; overflow: hidden; }
+    #draw { position: absolute; left: 0; top: 0; z-index: 5; cursor: crosshair; touch-action: none; width: 100%; height: 100%; }
+    #preview { width: 100%; max-width: 1000px; height: auto; display: block; opacity: 0.7; }
+    
+    /* Buttons & Controls */
+    .btn-execute { background: #2b6cb0; color: #fff; border-radius: 10px; font-weight: 800; padding: 18px; border: none; width: 100%; text-transform: uppercase; letter-spacing: 1px; transition: 0.3s; position: relative; z-index: 10; }
+    .btn-execute:hover:not(:disabled) { background: #2c5282; box-shadow: 0 5px 15px rgba(43, 108, 176, 0.4); }
+    .btn-execute:disabled { background: #a0aec0; cursor: not-allowed; }
+    .step-box { background: #f8fafc; border-left: 4px solid #3182ce; padding: 15px; margin-bottom: 20px; border-radius: 0 8px 8px 0; }
+    
+    /* Metrics Typography */
+    .metric-val-sm { font-size: 0.7rem; font-weight: 800; color: #3182ce; line-height: 1; margin-bottom: 5px; }
+    .input-label-sm { font-size: 0.75rem; font-weight: 700; color: #718096; text-transform: uppercase; margin-bottom: 5px; display: block; }
+    .section-title { font-size: 1rem; font-weight: 800; color: #4a5568; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #edf2f7; display: inline-block; padding-bottom: 5px; }
 
-    /* Drawing area */
-    .canvasWrap {
-      position: relative;
-      width: fit-content;
-      margin: 16px auto 0;
-      border: 2px dashed #cfcfcf;
-      border-radius: 12px;
-      overflow: hidden;
+    .btn-jump-live {
+      display: inline-block;
+      margin-top: 15px;
+      padding: 10px 25px;
+      background-color: #2b6cb0;
+      color: white;
+      border-radius: 50px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 4px 12px rgba(43,108,176,0.3);
+      transition: 0.3s;
     }
-    #preview {
-      display:block;
-      max-width: 650px;
-      height: auto;
+    .btn-jump-live:hover { background-color: #1a365d; color: white; transform: translateY(-2px); }
+
+    /* Processing Overlay (displayed during model inference) */
+    #loadingOverlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255,255,255,0.92);
+      z-index: 9999;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px);
     }
-    #draw {
-      position:absolute;
-      left:0;
-      top:0;
-      z-index: 10;
-      cursor: crosshair;
-      pointer-events: auto;
+    .loading-card {
+      background: white;
+      padding: 40px;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+      text-align: center;
+      max-width: 500px;
+      border: 1px solid #e2e8f0;
     }
-
-    .row { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
-    .col { flex: 1 1 480px; }
-    .outimg { width:100%; border-radius:10px; border:1px solid #eee; }
-
-  .imggrid{
-  display:grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap:16px;
-  align-items:start;
-  justify-items:stretch;
-}
-@media (max-width: 1100px){
-  .imggrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 640px){
-  .imggrid{ grid-template-columns: 1fr; }
-}
-.imgcard{ min-width: 0; }
-.imgcard h3{ margin:0 0 8px; text-align:center; }
-.imgcard img{ width:100%; border-radius:10px; border:1px solid #eee; background:#fff; display:block; }
-  .doc { text-align:center; margin: 10px 0 14px; }
-  .doc code { background:#f2f2f2; padding:2px 6px; border-radius:6px; }
-
-/* CM_TABLE_AUTOFIX */
-.cmwrap{ display:flex; justify-content:center; }
-.cm{ border-collapse:collapse; margin:12px auto; width:520px; max-width:100%; }
-.cm th, .cm td{ border:1px solid #ddd; padding:10px; text-align:center; }
-.cm th{ background:#f7f7f7; font-weight:700; }
-.cm .rowhdr{ background:#fbfbfb; text-align:left; font-weight:700; }
-.kv{ border-collapse:collapse; margin:12px auto; width:520px; max-width:100%; }
-.kv th, .kv td{ border:1px solid #ddd; padding:8px; }
-.kv th{ background:#f7f7f7; text-align:left; width:55%; }
-.kv td{ text-align:right; }
-</style>
-
+    .spinner-custom { width: 3.5rem; height: 3.5rem; color: #2b6cb0; border-width: 0.35em; }
+    .status-list { text-align: left; margin-top: 20px; font-size: 0.9rem; color: #4a5568; }
+    .status-list i { color: #3182ce; margin-right: 8px; }
+  </style>
 </head>
 <body>
+  <div id="loadingOverlay">
+    <div class="loading-card shadow-2xl">
+      <div class="spinner-border spinner-custom mb-4" role="status"></div>
+      <h3 class="fw-bold text-primary">Pipeline Execution</h3>
+
+      <div class="status-list border-top pt-3">
+        <div class="mb-2"><i class="bi bi-cpu"></i> Running Custom Trained Neural Network</div>
+        <div class="mb-2"><i class="bi bi-layers"></i> Executing Advanced Post-Processing</div>
+        <div class="mb-0"><i class="bi bi-graph-up"></i> Calculating Geometric Metrics</div>
+      </div>
+
+      <div class="mt-4">
+        <small class="text-secondary opacity-75">Estimated time: ~30 seconds</small>
+      </div>
+    </div>
+  </div>
+
   <div class="container">
-    <h2 class="title">Marble Crack Compliance</h2>
+    <div class="text-center mb-5">
+      <h1 class="fw-bold">Stone Vein Segmentation & Geometric Analysis</h1>
+      <a href="#live-sandbox" class="btn-jump-live">
+        <i class="bi bi-lightning-fill me-2"></i>GO TO LIVE DEMO
+      </a>
+    </div>
 
     <div class="card">
-      <form id="form" action="/analyze" method="post" enctype="multipart/form-data">
-        <div class="controls">
-          <label>Marble:
-            <input id="marbleInput" type="file" name="marble" accept="image/*" required>
-          </label>
-
-          <label>Upload mask (optional):
-            <input type="file" id="refmaskInput" name="refmask" accept="image/*">
-          </label>
-
-          <label>Low:
-            <input type="number" step="0.01" name="hyst_low" value="{{ hyst_low or 0.2 }}">
-          </label>
-
-          <label>High:
-            <input type="number" step="0.01" name="hyst_high" value="{{ hyst_high or 0.50 }}">
-          </label>
-
-          <button class="btn" type="submit">Analyze</button>
-<label style="margin-left:16px;">
-<input type="checkbox" name="use_closing">
-Apply morphological closing (connect cracks)
-</label>
-          <label style="margin-left:16px; font-weight:500;">
-            <input type="checkbox" name="use_refine">
-            Morphology refinement
-          </label>
-          <button class="btn2" type="button" id="clearBtn">Clear drawing</button>
-
-          <label class="muted">Brush:
-            <input type="range" id="brush" min="2" max="40" value="12">
-          </label>
-
-          <input type="hidden" name="refmask_b64" id="refmask_b64">
+      <div class="row align-items-center mb-4">
+        <div class="col-lg-7 text-center">
+            <span class="input-label-sm">Sample Raw Input</span>
+            <img src="/segmentation-engine/static/demo_assets/demo_original.jpg" class="hero-demo" alt="Original Texture">
         </div>
+        <div class="col-lg-5">
+            <div class="process-doc">
+                <div><span class="badge-pipeline">AI Pipeline</span></div>
+                <ul class="doc-list">
+                    <li><strong>Training:</strong> Model pre-trained on the Kaggle Crack Segmentation dataset.</li>
+                    <li><strong>Inference:</strong> The model trained on cracks, applied to detect stone veins with little labeled data.</li>
+                    <li><strong>Post-Processing:</strong> Refined output using advanced <strong>Image Processing</strong> techniques.</li>
+                    <li><strong>Validation:</strong> Performance metrics calculated against a Custom Ground Truth mask.</li>
+                    <li style="list-style: none; margin-top: 15px;">
+                        <i class="bi bi-gear-fill me-2 text-primary"></i><strong>Computer Vision Algorithms:</strong><br>
+                        <a href="https://github.com/yuvalSig/Stone-Vein-Segmentation-and-Geometric-Analysis" target="_blank" class="fw-bold text-decoration-none">View FullSource on GitHub & Model Training Configurations</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+      </div>
 
-        <p class="muted" style="text-align:center;margin-top:10px;">
-          Draw directly on the image (white strokes). The drawn mask is used as reference.
-        </p>
+      <div class="mt-5">
+        <h5 class="section-title mb-4">Sample Summary Analysis</h5>
+        <div class="pipeline-grid">
+          <div class="pipeline-item"><img src="/segmentation-engine/static/demo_assets/demo_mask.png"><h6>1. Model Prediction</h6></div>
+          <div class="pipeline-item">
+              <div class="mb-2 text-center">
+                  <div class="small text-muted fw-bold" style="font-size: 0.7rem;">Test Image F1-Score (Dice)</div>
+                  <div class="metric-val-sm">0.791</div>
+              </div>
+              <img src="/segmentation-engine/static/demo_assets/demo_overlay.png">
+              <h6>2. Geometric Analysis</h6>
+              <div class="legend">
+                  <div class="legend-item"><span class="dot" style="background: #00ff00;"></span> TP</div>
+                  <div class="legend-item"><span class="dot" style="background: #ff0000;"></span> FN</div>
+                  <div class="legend-item"><span class="dot" style="background: #0000ff;"></span> FP</div>
+              </div>
+          </div>
+          <div class="pipeline-item"><img src="/segmentation-engine/static/demo_assets/sk.png"><h6>3. Topological Skeleton</h6></div>
+        </div>
+      </div>
+    </div>
 
+    <div id="live-sandbox" class="card shadow-lg border-top border-primary border-4">
+      <h5 class="fw-bold mb-4 text-primary"><i class="bi bi-cpu me-2"></i>Live Validation Sandbox</h5>
+      <div class="step-box">
+        <p class="mb-2"><strong>STEP 1:</strong> Upload your stone image.</p>
+        <p class="mb-0"><strong>STEP 2 (Validation):</strong> To provide a Ground Truth, you can <strong>DRAW directly on the image</strong> below <strong>OR UPLOAD</strong> a precise mask file.</p>
+      </div>
+
+      <form id="form" action="/segmentation-engine/analyze" method="post" enctype="multipart/form-data">
+        <div class="row g-3 align-items-end mb-4">
+            <div class="col-md-5">
+                <label class="form-label small fw-bold">1. Source Stone Image</label>
+                <input id="marbleInput" type="file" name="marble" class="form-control" required>
+            </div>
+            <div class="col-12 mt-3 mb-1">
+                <h6 class="fw-bold text-uppercase" style="color: #2b6cb0; font-size: 0.8rem; letter-spacing: 1px;">
+                    <i class="bi bi-cpu-fill me-2"></i>Algorithm Parameters
+                </h6>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold">Low Thr</label>
+                <input type="number" name="low_thr" class="form-control" step="0.01" value="0.2" min="0" max="1">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold">High Thr</label>
+                <input type="number" name="high_thr" class="form-control" step="0.01" value="0.5" min="0" max="1">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-bold">2. Reference Mask (Optional)</label>
+                <input type="file" name="refmask" class="form-control">
+            </div>
+            <div class="col-md-3 text-end">
+                <button type="button" id="clearBtn" class="btn btn-outline-danger btn-sm w-100">Clear Drawing</button>
+            </div>
+        </div>
+        
+        <input type="hidden" name="refmask_b64" id="refmask_b64">
+        
         <div class="canvasWrap" id="wrap" style="display:none;">
           <img id="preview" alt="">
           <canvas id="draw"></canvas>
         </div>
+
+        <div class="mt-4">
+          <button id="submitBtn" class="btn-execute" type="submit">
+            <i class="bi bi-play-circle-fill me-2"></i> RUN LIVE DEMO: EXECUTE ANALYSIS PIPELINE
+          </button>
+        </div>
       </form>
     </div>
-
-    {% if pred_b64 %}
-  <div style="height:16px"></div>
-
-  <div class="card">
-    <div class="doc">
-      <div><b>Run settings</b></div>
-      <div class="muted">
-        Hysteresis thresholds: <code>low={{ hyst_low }}</code>, <code>high={{ hyst_high }}</code>
-        &nbsp;|&nbsp; Hysteresis keeps weak pixels only if connected to strong pixels.
-      </div>
-      <div class="muted">
-        Morphology refinement: <code>{{ "ON" if use_refine else "OFF" }}</code>
-      </div>
-    </div>
-
-    <div class="imggrid">
-      <div class="imgcard">
-        <h3>Original</h3>
-        <img src="data:image/png;base64,{{ marble_b64 }}" alt="Original">
-      </div>
-
-      <div class="imgcard">
-        <h3>Pred mask</h3>
-        <img src="data:image/png;base64,{{ pred_b64 }}" alt="Pred mask">
-      </div>
-
-      <div class="imgcard">
-        <h3>Overlay</h3>
-        <img src="data:image/png;base64,{{ overlay_b64 }}" alt="Overlay">
-      </div>
-
-      {% if thin_b64 %}
-      <div class="imgcard">
-        <h3>Thin mask</h3>
-        <img src="data:image/png;base64,{{ thin_b64 }}" alt="Thin mask">
-      </div>
-      {% endif %}
-    </div>
   </div>
 
-  <p style="text-align:center; margin-top:12px;"><b>Components:</b> {{ n_components }}</p>
+  <script>
+    /* JavaScript Logic for Image Preview & Canvas Drawing 
+    */
+    const marbleInput = document.getElementById("marbleInput");
+    const preview = document.getElementById("preview");
+    const canvas = document.getElementById("draw");
+    const wrap = document.getElementById("wrap");
+    const ctx = canvas.getContext("2d");
+    const clearBtn = document.getElementById("clearBtn");
+    const form = document.getElementById("form");
+    const submitBtn = document.getElementById("submitBtn");
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    let drawing = false;
 
-<div class="card" style="margin-top:16px;">
-
-  {% if tp is defined and tp is not none %}
-  <h3 style="margin-top:0;">Confusion Matrix</h3>
-
-{# TN handling:
-   - Prefer backend-provided tn if exists.
-   - Else compute tn if total_pixels provided (common in pixel-level eval).
-   - Else show "—".
-#}
-{% set tn_val = (tn if (tn is defined and tn is not none) else ((total_pixels - tp - fp - fn) if (total_pixels is defined and total_pixels is not none) else none)) %}
-
-<div class="cmwrap">
-  <table class="cm" aria-label="Confusion Matrix">
-    <thead>
-      <tr>
-        <th></th>
-        <th colspan="2">Predicted</th>
-      </tr>
-      <tr>
-        <th></th>
-        <th>Crack (Positive)</th>
-        <th>Background (Negative)</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <th class="rowhdr">Actual Crack (Positive)</th>
-        <td><b>TP</b><br>{{ tp }}</td>
-        <td><b>FN</b><br>{{ fn }}</td>
-      </tr>
-      <tr>
-        <th class="rowhdr">Actual Background (Negative)</th>
-        <td><b>FP</b><br>{{ fp }}</td>
-        <td><b>TN</b><br>{{ tn_val if tn_val is not none else "—" }}</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-<h3 style="margin-top:16px;">Metrics</h3>
-<table class="kv" aria-label="Metrics">
-  <tbody>
-    <tr>
-      <th>Precision</th>
-      <td>{{ "%.3f"|format(precision) if (precision is defined and precision is not none) else "—" }}</td>
-    </tr>
-    <tr>
-      <th>Recall</th>
-      <td>{{ "%.3f"|format(recall) if (recall is defined and recall is not none) else "—" }}</td>
-    </tr>
-    <tr>
-      <th>F1-score</th>
-      <td>{{ "%.3f"|format(f1) if (f1 is defined and f1 is not none) else "—" }}</td>
-    </tr>
-  </tbody>
-</table>
-{% endif %}
-
-  {% if crack_rows %}
-  <h3 style="margin-top:16px;">Crack table</h3>
-  <div style="overflow-x:auto;">
-    <table id="crackTable" style="border-collapse:collapse; width:100%;">
-      <thead>
-        <tr>
-          <th style="border:1px solid #ddd; padding:6px;">Length (px)</th>
-          <th style="border:1px solid #ddd; padding:6px;">Angle (deg)</th>
-          <th style="border:1px solid #ddd; padding:6px;">Mean width (px)</th>
-          <th style="border:1px solid #ddd; padding:6px;">Max width (px)</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in crack_rows %}
-        <tr>
-          <td style="border:1px solid #ddd; padding:6px;">{{ r["length_px"] }}</td>
-          <td style="border:1px solid #ddd; padding:6px;">{{ "%.1f"|format(r["orientation_deg"]) }}</td>
-          <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r["mean_width_px"]) }}</td>
-          <td style="border:1px solid #ddd; padding:6px;">{{ "%.2f"|format(r["max_width_px"]) }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
-
-</div>
-
-{% endif %}
-
-<script>
-  const marbleInput = document.getElementById("marbleInput");
-  const preview = document.getElementById("preview");
-  const canvas = document.getElementById("draw");
-  const wrap = document.getElementById("wrap");
-  const ctx = canvas.getContext("2d");
-  const clearBtn = document.getElementById("clearBtn");
-  const brush = document.getElementById("brush");
-  const form = document.getElementById("form");
-  const refmaskField = document.getElementById("refmask_b64");
-
-    const refmaskInput = document.getElementById("refmaskInput");
-  let drawing = false;
-  let lastX = 0, lastY = 0;
-
-  function setCanvasSizeToImage() {
-    // Use displayed size (CSS pixels) so mouse mapping is 1:1
-    const w = preview.clientWidth;
-    const h = preview.clientHeight;
-
-    canvas.width = Math.max(1, Math.round(w));
-    canvas.height = Math.max(1, Math.round(h));
-
-    canvas.style.width = w + "px";
-    canvas.style.height = h + "px";
-
-    // reset drawing settings
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-  }
-
-  function getPos(e) {
-    const r = canvas.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
-  }
-
-  function start(e) {
-    drawing = true;
-      if (refmaskInput) refmaskInput.value = "";
-    const p = getPos(e);
-    lastX = p.x; lastY = p.y;
-  }
-
-  function move(e) {
-    if (!drawing) return;
-    const p = getPos(e);
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = parseInt(brush.value, 10);
-    ctx.beginPath();
-    ctx.moveTo(lastX, lastY);
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
-    lastX = p.x; lastY = p.y;
-  }
-
-  function stop() { drawing = false; }
-
-  clearBtn.addEventListener("click", () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  });
-
-  canvas.addEventListener("mousedown", start);
-  canvas.addEventListener("mousemove", move);
-  window.addEventListener("mouseup", stop);
-
-  // Touch support
-  canvas.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    const t = e.touches[0];
-    start({clientX: t.clientX, clientY: t.clientY});
-  }, {passive:false});
-
-  canvas.addEventListener("touchmove", (e) => {
-    e.preventDefault();
-    const t = e.touches[0];
-    move({clientX: t.clientX, clientY: t.clientY});
-  }, {passive:false});
-
-  canvas.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    stop();
-  }, {passive:false});
-
-  marbleInput.addEventListener("change", () => {
-    const f = marbleInput.files && marbleInput.files[0];
-    if (!f) return;
-    const url = URL.createObjectURL(f);
-
-    preview.onload = () => {
-      wrap.style.display = "block";
-      // Wait a tick so clientWidth/Height are ready
-      setTimeout(setCanvasSizeToImage, 0);
-    };
-    preview.src = url;
-  });
-
-  window.addEventListener("resize", () => {
-    if (wrap.style.display !== "none") {
-      const old = ctx.getImageData(0,0,canvas.width,canvas.height);
-      setCanvasSizeToImage();
-      // (optional) we don't restore old strokes on resize to keep it simple
+    // Helper: Map mouse/touch coordinates to high-res canvas coordinates
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
     }
-  });
 
-  form.addEventListener("submit", () => {
-  const hasUpload = !!(refmaskInput && refmaskInput.files && refmaskInput.files.length > 0);
-  if (hasUpload) {
-    // upload wins, do not send canvas
-    refmaskField.value = "";
-  } else {
-    // default: always send canvas (empty canvas == empty mask)
-    refmaskField.value = canvas.toDataURL("image/png");
-  }
-});
-</script>
+    function start(e) { drawing = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); if(e.type === 'touchstart') e.preventDefault(); }
+    function move(e) { if (!drawing) return; const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.strokeStyle = "white"; ctx.lineWidth = 12; ctx.lineCap = "round"; ctx.stroke(); if(e.type === 'touchmove') e.preventDefault(); }
+
+    // Handle File Upload & Initialize Canvas
+    marbleInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const imgCheck = new Image();
+        imgCheck.src = URL.createObjectURL(file);
+
+        imgCheck.onload = () => {
+            const w = imgCheck.naturalWidth;
+            const h = imgCheck.naturalHeight;
+            const LIMIT = 1200;
+
+            // Enforce size limits
+            if (w > LIMIT || h > LIMIT) {
+                alert(`Error: Image is too large (${w}x${h}px).\nMax supported is ${LIMIT}x${LIMIT}px.\nPlease resize and try again.`);
+                marbleInput.value = "";
+                preview.src = "";
+                wrap.style.display = "none";
+                return;
+            }
+
+            preview.src = imgCheck.src;
+            wrap.style.display = "block";
+            canvas.width = w;
+            canvas.height = h;
+            canvas.style.width = preview.clientWidth + "px";
+            canvas.style.height = preview.clientHeight + "px";
+        };
+    };
+
+    // Drawing Event Listeners (Mouse + Touch)
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', () => drawing = false);
+    canvas.addEventListener('touchstart', start, {passive: false});
+    canvas.addEventListener('touchmove', move, {passive: false});
+    canvas.addEventListener('touchend', () => drawing = false);
+
+    clearBtn.onclick = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Form Submission: Convert drawing to Base64 and show loading UI
+    form.onsubmit = () => {
+        document.getElementById("refmask_b64").value = canvas.toDataURL("image/png");
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> RUNNING...';
+        loadingOverlay.style.display = "flex";
+    };
+  </script>
+
+{% include "analysis_block.html" %}
+
 </body>
 </html>
+
+<script>
+    /* Logic to disable Canvas drawing if a physical mask file is uploaded 
+    */
+    document.addEventListener("DOMContentLoaded", function() {
+        const refmaskInput = document.querySelector('input[name="refmask"]');
+        const canvasElement = document.getElementById("draw");
+        const context = canvasElement.getContext("2d");
+
+        refmaskInput.addEventListener("change", function() {
+            if (this.files && this.files.length > 0) {
+                // Lock interaction
+                canvasElement.style.pointerEvents = "none";
+                canvasElement.style.opacity = "0.5";
+                // Clear existing drawing to prevent ambiguity
+                context.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                console.log("Mask file selected: Canvas locked.");
+            } else {
+                // Unlock interaction
+                canvasElement.style.pointerEvents = "auto";
+                canvasElement.style.opacity = "1";
+                console.log("Mask file removed: Canvas unlocked.");
+            }
+        });
+    });
+</script>
