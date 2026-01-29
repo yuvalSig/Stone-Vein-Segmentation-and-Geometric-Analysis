@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <base href="/segmentation-engine/">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Geometric Analysis Results</title>
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .container { max-width: 1200px; padding: 40px 20px; }
+    .card { border: none; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); background: white; padding: 30px; }
+    .img-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-bottom: 30px; }
+    .img-item { text-align: center; }
+    .img-item img { width: 100%; border-radius: 8px; border: 1px solid #e2e8f0; background: #000; }
+    .table-container { margin-top: 30px; max-height: 400px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h2 class="fw-bold mb-4">Geometric Analysis Results</h2>
+
+      <div class="metric-summary mb-4">
+        <span class="badge bg-primary me-2">Components: {{ n_components }}</span>
+        {% if metrics %}
+          <span class="badge bg-secondary">F1 Score: {{ "%.4f"|format(metrics.f1) }}</span>
+          {% if metrics.f1 >= 0.7 %}
+            <span class="badge bg-success ms-2">Good Match</span>
+          {% elif metrics.f1 >= 0.4 %}
+            <span class="badge bg-warning text-dark ms-2">Balanced Match</span>
+          {% else %}
+            <span class="badge bg-danger ms-2">Weak Match</span>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      <div class="img-grid">
+        <div class="img-item"><img src="data:image/png;base64,{{ marble_b64 }}"><h6>Original</h6></div>
+        <div class="img-item"><img src="data:image/png;base64,{{ pred_b64 }}"><h6>Prediction</h6></div>
+        <div class="img-item"><img src="data:image/png;base64,{{ thin_b64 }}"><h6>Skeleton</h6></div>
+        <div class="img-item"><img src="data:image/png;base64,{{ overlay_base64 }}"><h6>Overlay (TP/FP/FN)</h6></div>
+      </div>
+
+      {% if cm %}
+      <div class="mt-4 mb-5 p-4 border rounded bg-light">
+          <h4 class="fw-bold mb-3">Accuracy Metrics</h4>
+          <div class="d-flex gap-3 mb-3 small fw-bold">
+            <span><span style="display:inline-block; width:12px; height:12px; background:#00ff00; border-radius:50%; margin-right:5px;"></span>Match (TP)</span>
+            <span><span style="display:inline-block; width:12px; height:12px; background:#ff0000; border-radius:50%; margin-right:5px;"></span>Missed (FN)</span>
+            <span><span style="display:inline-block; width:12px; height:12px; background:#0000ff; border-radius:50%; margin-right:5px;"></span>Noise (FP)</span>
+          </div>
+          <div class="row align-items-center">
+              <div class="col-md-5">
+                  <table class="table table-sm table-bordered bg-white mb-0">
+                      <thead>
+                          <tr class="table-light text-center">
+                              <th></th>
+                              <th>GT Pos</th>
+                              <th>GT Neg</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          <tr>
+                              <th class="table-light">Pred Pos</th>
+                              <td class="text-center">
+                                <span style="display:inline-block; width:10px; height:10px; background:#00ff00; border-radius:50%; margin-right:5px;"></span>
+                                {{ cm.tp }} (TP)
+                                {% if cm_pct %}<br><small class="text-muted">{{ "%.1f"|format(cm_pct.tp) }}% of GT Pos</small>{% endif %}
+                              </td>
+                              <td class="text-center">
+                                <span style="display:inline-block; width:10px; height:10px; background:#0000ff; border-radius:50%; margin-right:5px;"></span>
+                                {{ cm.fp }} (FP)
+                                {% if cm_pct %}<br><small class="text-muted">{{ "%.1f"|format(cm_pct.fp) }}% of GT Neg</small>{% endif %}
+                              </td>
+                          </tr>
+                          <tr>
+                              <th class="table-light">Pred Neg</th>
+                              <td class="text-center">
+                                <span style="display:inline-block; width:10px; height:10px; background:#ff0000; border-radius:50%; margin-right:5px;"></span>
+                                {{ cm.fn }} (FN)
+                                {% if cm_pct %}<br><small class="text-muted">{{ "%.1f"|format(cm_pct.fn) }}% of GT Pos</small>{% endif %}
+                              </td>
+                              <td class="text-center">
+                                {{ cm.tn }} (TN)
+                                {% if cm_pct %}<br><small class="text-muted">{{ "%.1f"|format(cm_pct.tn) }}% of GT Neg</small>{% endif %}
+                              </td>
+                          </tr>
+                      </tbody>
+                  </table>
+              </div>
+              <div class="col-md-7">
+                  <div class="ps-md-4">
+                      <p class="mb-1"><strong>Precision:</strong> {{ "%.4f"|format(metrics.precision) if metrics else "N/A" }}</p>
+                      <p class="mb-1"><strong>Recall:</strong> {{ "%.4f"|format(metrics.recall) if metrics else "N/A" }}</p>
+                      <p class="mb-0"><strong>F1 Score:</strong> {{ "%.4f"|format(metrics.f1) if metrics else "N/A" }}</p>
+                  </div>
+              </div>
+          </div>
+      </div>
+      {% endif %}
+
+      <h4 class="fw-bold">Detailed Crack Metrics</h4>
+      <div class="table-container">
+        <table class="table table-hover border">
+          <thead class="table-light">
+            <tr>
+              <th>Length (px)</th>
+              <th>Angle (deg)</th>
+              <th>Mean Width (px)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in crack_rows %}
+            <tr>
+              <td>{{ "%.2f"|format(row.length_px) }}</td>
+              <td>{{ "%.1f"|format(row.orientation_deg) }}°</td>
+              <td>{{ "%.2f"|format(row.mean_width_px) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="text-center mt-5">
+        <a href="/segmentation-engine/" class="btn btn-primary px-5 py-2 fw-bold">NEW ANALYSIS</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
