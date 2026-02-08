@@ -1,1 +1,0 @@
-python train.py --data_root data/raw/crack-dataset --img_size 512 --epochs 20 --batch_size 8 --lr 3e-4 --pos_weight 8 --early_stop_patience 5 --early_stop_min_delta 0.001 --seed 42 --out_dir outputs_unet 
