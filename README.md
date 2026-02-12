@@ -127,12 +127,6 @@ Applied on probability maps:
 - High threshold → strong pixels
 - Low threshold → connected weak pixels
 
-### Morphological Refinement
-- Noise removal
-- Area filtering (50–80 px)
-
-Produces clean binary crack masks.
-
 ---
 
 ##  Geometric Analysis
@@ -174,10 +168,7 @@ Compared against ground-truth masks.
 - Reduced performance on dark surfaces
 - CPU-only inference (30–50 sec per image)
 
-### Planned Improvements
-- GPU deployment
-- Dataset balancing
-- Real-time inference
+
 - Improved low-light robustness
 
 ---
