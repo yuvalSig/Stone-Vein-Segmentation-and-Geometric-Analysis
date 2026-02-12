@@ -39,11 +39,26 @@ https://www.kaggle.com/datasets/yatata1/crack-dataset
 - Detected crack centerlines
 - Overestimated crack thickness
 - Failed on thin structures
+#### Input Image (Raw Stone Surface)
+<img width="717" height="277" alt="1" src="https://github.com/user-attachments/assets/e41f660d-b574-4fc7-b459-4c0c655d2852" />
+
+
+#### Ground Truth
+<img width="721" height="276" alt="2" src="https://github.com/user-attachments/assets/39f368a2-9be0-4320-a942-ccd8ef51f392" />
+
+
+#### DeepLabV3 Output (Overestimated Thickness)
+<img width="718" height="252" alt="3" src="https://github.com/user-attachments/assets/c0af9114-5610-476e-985f-b4570a31e569" />
+
 
 ### Final Model: U-Net
 - Preserves fine topology
 - Improved thin-crack segmentation
 - Better pixel accuracy
+
+#### U-Net Output (Improved Thin Crack Detection)
+> Evaluated using identical thresholding and post-processing parameters.
+<img width="722" height="276" alt="4" src="https://github.com/user-attachments/assets/eed466dd-0ae8-413a-a110-0dd0e8a0b836" />
 
 ---
 
